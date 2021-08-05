@@ -2,7 +2,7 @@
   "name": "puzzadsocbot",
   "packageManager": "yarn@3.0.0",
   "scripts": {
-    "start": ""
+    "start": "yarn tsc && yarn node build/index.js"
   },
   "dependencies": {
     "discord.js": "^12.5.3",

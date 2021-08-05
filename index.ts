@@ -1,5 +1,6 @@
 import Discord from "discord.js";
 import { accept, addmembers, registerteam, reject } from "./src/command_processor";
+import { bot_token } from "./src/config";
 
 const client = new Discord.Client();
 
@@ -34,13 +35,13 @@ client.on('message', async msg => {
   } else if (command === 'help') {
     // Display commands
     msg.channel.send(`
-    !registerteam [teamname]  Create voice & text channels & roles for your teamname
-    !addmembers [@user1 @user2 ...]      Add @users to your team
-    !accept                   Accept team invitation
-    !reject                   Reject team invitation
-    !help                     Display this menu
+    !registerteam [teamname]          Create voice & text channels & roles for your teamname
+    !addmembers [@user1 @user2 ...]   Add @users to your team
+    !accept                           Accept team invitation
+    !reject                           Reject team invitation
+    !help                             Display this menu
     `)
   }
 });
   
-client.login('token');
+client.login(bot_token);

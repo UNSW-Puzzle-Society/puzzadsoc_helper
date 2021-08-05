@@ -11,3 +11,4 @@
 .yarn
 yarn*
 build
+config.ts

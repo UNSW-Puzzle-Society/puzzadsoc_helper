@@ -1,80 +1,104 @@
 import Discord from "discord.js";
+import { guild_id} from "./config";
 
 
 // Create role
 // Create voice channel
 // Create text channel
 // Assign msg author to new role
+// global state of the regitered user's with their team
+type DiscordId= string;
+// create a persistent storage for userTeams
+let userTeams :Record<DiscordId,Discord.Role>= {};
 async function registerteam(client: Discord.Client, msg:Discord.Message, args: string[]){
-    const guild_id = "";
+    // TODO: handle color registration for teams and maybe modifiably change their colors when created
     const guild = await client.guilds.fetch(guild_id);
+    const team_name = args[0];
     const new_role = await guild.roles.create({
         data:{
-            name: args[0]
+            name: team_name
         },
-        reason: `Created by ${msg.author.tag} for team: ${args[0]}`
+        reason: `Created by ${msg.author.tag} for team: ${team_name}`
     });
     const member = await msg.member?.roles.add(new_role);
-    const new_text_channel = await guild.channels.create(`team-${args[0]}`,{
+    // TODO: what happens when there's a team trying to register with an existing name
+    const perm_ow : Discord.OverwriteResolvable[] = [
+        {
+            id: guild.id,
+            deny: ['VIEW_CHANNEL']
+        },
+        {
+            id: new_role.id,
+            allow: ['VIEW_CHANNEL']
+        }
+    ];
+    const blank_category = await guild.channels.create(`team-${team_name}`,{
+        type: 'category'
+    })
+    const new_text_channel = await guild.channels.create(`team-${team_name}`,{
         type: 'text',
-        permissionOverwrites: [
-            {
-                id: guild.id,
-                deny: ['VIEW_CHANNEL']
-            },
-            {
-                id: new_role.id,
-                allow: ['VIEW_CHANNEL']
-            }
-        ],
+        permissionOverwrites: perm_ow,
+        parent: blank_category.id,
     })
-    const new_voice_channel = await guild.channels.create(`team-${args[0]}`,{
+    const new_voice_channel = await guild.channels.create(`team-${team_name}`,{
         type: 'voice',
-        permissionOverwrites: [
-            {
-                id: guild.id,
-                deny: ['VIEW_CHANNEL']
-            },
-            {
-                id: new_role.id,
-                allow: ['VIEW_CHANNEL']
-            }
-        ]
+        permissionOverwrites: perm_ow,
+        parent: blank_category.id,
     })
-    // TODO cleanup code later
+    const new_category = await blank_category.overwritePermissions(perm_ow);
+    userTeams[msg.author.id] = new_role;
+    msg.channel.send(`Team ${team_name} has been registered, and lead by ${msg.author.tag}`)
+    // TODO cleanup code if any of the awaits fail
 }
 
 // global state store for pending accepts
-type DiscordId= string;
+// TODO: Create a persistent storage for pendingAccepts
 let pendingAccepts :Record<DiscordId,Discord.Role>= {};
 async function addmembers(client: Discord.Client, msg: Discord.Message, args: string[]){
     const mention_ids = args.map(mention_id => mention_id.slice(2,-1))
                             .map(mention_id => mention_id.startsWith('!') ? mention_id.slice(1) : mention_id);
-    const guild_id = "";
+    const user_tag = args[0];
+    // TODO: Do I have to check if the members exists?
     const guild = await client.guilds.fetch(guild_id);
-    // TODO: this can be a problem when there's a higher role than a team member
-    const role = msg.member?.roles.highest;
-    if (role !== undefined)
+    const role = userTeams[msg.author.id];
+    if (role !== undefined){
         // TODO: is the mention_id already in a team?
         mention_ids.forEach(mention_id => {
-            pendingAccepts.mention_id = role;
+            pendingAccepts[mention_id] = role;
         });
-    // TODO return a message to the user
+        // TODO return a message to the user
+        msg.channel.send(`Awaiting acceptance or rejection of ${user_tag}`);
+    }
 }
 
 async function accept(client: Discord.Client, msg:Discord.Message) {
     const role = pendingAccepts[msg.author.id];
-    if (role) {
-        msg.member?.roles.add(role);
+    const isInTeam = userTeams[msg.author.id]
+    if (isInTeam){
+        msg.channel.send(`You are already in team ${isInTeam.name}`);
     }
-    // TODO: return a message to the user
+    else if (role) {
+        msg.member?.roles.add(role);
+        msg.channel.send(`Accepting ${role.name}'s invitation`);
+        delete pendingAccepts[msg.author.id];
+    } else {
+        msg.channel.send(`No teams to accept, please ask their members to invite you.`)
+    }
 }
 async function reject(client: Discord.Client, msg:Discord.Message) {
     const role = pendingAccepts[msg.author.id];
     if (role) {
         delete pendingAccepts[msg.author.id];
+        msg.channel.send(`Rejecting ${role.name}'s invitation`);
+    } else {
+        msg.channel.send(`No teams to reject, please ask their members to invite you.`)
     }
-    //TODO: return a message to the user
 }
+
+// TODO: Individually remove teams and their channels
+// TODO: Collectivelly remove teams and their channels
+// TODO: Remove all teams and their channels
+
+// TODO: User quit team
 
 export {registerteam, addmembers, accept, reject};
