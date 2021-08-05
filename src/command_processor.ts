@@ -99,6 +99,19 @@ async function reject(client: Discord.Client, msg:Discord.Message) {
 // TODO: Collectivelly remove teams and their channels
 // TODO: Remove all teams and their channels
 
-// TODO: User quit team
 
-export {registerteam, addmembers, accept, reject};
+// TODO: Ping an exec for help for a puzzle
+// TODO: what happens when a team has no members?
+// User quit team
+async function leaveteam(client: Discord.Client, msg:Discord.Message) {
+    const role = userTeams[msg.author.id];
+    if (role){
+        msg.member?.roles.remove(role);
+        delete userTeams[msg.author.id];
+        msg.channel.send(`${msg.author.tag} has been removed from team ${role.name}`);
+    } else {
+        msg.channel.send(`You are not in a team yet.`);
+    }
+}
+
+export {registerteam, addmembers, accept, reject, leaveteam};
