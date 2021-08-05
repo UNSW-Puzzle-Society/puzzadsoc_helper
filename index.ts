@@ -17,6 +17,7 @@ client.on('message', async msg => {
 	const command = args.shift()?.toLowerCase();
 
   // process commands
+  // TODO: check the number of arguments to the command
   if (command === 'registerteam'){
     // Create voice channel
     // Create text channel

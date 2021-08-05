@@ -13,6 +13,7 @@ let userTeams :Record<DiscordId,Discord.Role>= {};
 async function registerteam(client: Discord.Client, msg:Discord.Message, args: string[]){
     // TODO: handle color registration for teams and maybe modifiably change their colors when created
     const guild = await client.guilds.fetch(guild_id);
+    // TODO: handle when team_name is undefined
     const team_name = args[0];
     const new_role = await guild.roles.create({
         data:{
@@ -79,6 +80,7 @@ async function accept(client: Discord.Client, msg:Discord.Message) {
     }
     else if (role) {
         msg.member?.roles.add(role);
+        userTeams[msg.author.id] = role;
         msg.channel.send(`Accepting ${role.name}'s invitation`);
         delete pendingAccepts[msg.author.id];
     } else {
