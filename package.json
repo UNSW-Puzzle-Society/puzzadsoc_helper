@@ -5,7 +5,10 @@
     "start": "yarn tsc && yarn node build/index.js"
   },
   "dependencies": {
+    "@types/sqlite3": "^3.1.7",
     "discord.js": "^12.5.3",
+    "sqlite": "^4.0.23",
+    "sqlite3": "^5.0.2",
     "typescript": "^4.3.5"
   }
 }
