@@ -1,6 +1,6 @@
 import Discord from "discord.js";
-import { accept, addmembers, deleteAll, leaveteam, registerteam, reject } from "./src/command_processor";
-import { bot_token, msg_channel_id } from "./src/config";
+import { accept, addmembers, deleteAll, leaveteam, listteams, registerteam, reject } from "./src/command_processor";
+import { admin_channel_id, bot_token, guild_id, msg_channel_id } from "./src/config";
 import sqlite3, { OPEN_CREATE, OPEN_READWRITE } from "sqlite3";
 import {open} from "sqlite";
 
@@ -23,7 +23,8 @@ if (db == null){
   if (db !== null){
     await db.exec(`CREATE TABLE puzzUsers (
       discord_id TEXT PRIMARY KEY,
-      puzz_team_id TEXT
+      puzz_team_id TEXT,
+      discord_tag TEXT
     )`);
     // TODO: creator_id can be stale if the creator leaves the team while having members in them
     await db.exec(`CREATE TABLE puzzTeams (
@@ -45,10 +46,25 @@ if (db == null){
 
 client.on('ready', async () => {
     console.log(`Logged in as ${client.user?.tag}!`);
+    // Update discord_id with discord_tags;
+    /**
+    const guild = await client.guilds.fetch(guild_id);
+    let row = await db?.each("SELECT discord_id FROM puzzUsers",
+      async (err,row) =>{
+        let discord_id = row["discord_id"];
+        let discord_tag = await guild.members.resolve(discord_id)?.user.tag;
+        db?.run("UPDATE puzzUsers SET discord_tag = ? WHERE discord_id = ?", discord_tag, discord_id);
+        console.log("running");
+      }
+    )
+    console.log("stop");
+     * 
+     */
   });
 
 client.on('message', async msg => {
-  if (msg.channel.id !== msg_channel_id) return;
+  let allowed_channels = [msg_channel_id,admin_channel_id];
+  if (!allowed_channels.includes(msg.channel.id)) return;
   // obtain prefix
   const prefix = "!";
   if (!msg.content.startsWith(prefix) || msg.author.bot || !db) return;
@@ -94,7 +110,9 @@ client.on('message', async msg => {
     }
     const res  = await leaveteam(client,msg,args, db);
   } else if (command === 'deleteall'){
-    const res = await deleteAll(client, msg, args, db);
+    //const res = await deleteAll(client, msg, args, db);
+  } else if (command === 'listteams' && msg.channel.id === admin_channel_id){
+    await listteams(client, msg,args, db);
   } else if (command === 'help') {
     // Display commands
     msg.channel.send(`
