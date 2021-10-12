@@ -72,9 +72,10 @@ async function registerteam(client: Discord.Client, msg:Discord.Message, args: s
         `${new_voice_channel.id}`
     )
     await db.run(
-        'INSERT OR REPLACE INTO puzzUsers (discord_id, puzz_team_id) VALUES (?,?)',
+        'INSERT OR REPLACE INTO puzzUsers (discord_id, puzz_team_id, discord_tag) VALUES (?,?,?)',
         `${msg.author.id}`,
-        `${new_role.id}`
+        `${new_role.id}`,
+        `${msg.author.tag}`
     )
     let bot_id = client.user?.id
     if (bot_id) await guild.members.resolve(bot_id)?.roles.add(new_role);
@@ -88,15 +89,19 @@ async function addmembers(client: Discord.Client, msg: Discord.Message, args: st
     const mention_ids = args.map(mention_id => mention_id.slice(2,-1))
                             .map(mention_id => mention_id.startsWith('!') ? mention_id.slice(1) : mention_id);
     let row = await db.get('SELECT * FROM puzzUsers WHERE discord_id = ?', msg.author.id);
+    const guild = await client.guilds.fetch(guild_id);
     // TODO: Ascertain if team/role exists
     if (row && row["puzz_team_id"] !== null){
         let res = await db.get('SELECT * FROM puzzTeams WHERE puzz_team_id = ?', row["puzz_team_id"]);
         let role = res["puzz_team_id"];
         // TODO: is the mention_id already in a team?
         mention_ids.forEach(async(mention_id) => {
+            let user_tag = await guild.members.resolve(mention_id)?.user.tag;
+            //TODO: double check if it's insert or ignore ,or, insert or replace.
             await db.run(
-                'INSERT OR IGNORE INTO puzzUsers (discord_id, puzz_team_id) VALUES (?,NULL)',
+                'INSERT OR IGNORE INTO puzzUsers (discord_id, puzz_team_id, discord_tag) VALUES (?,NULL,?)',
                 `${mention_id}`,
+                `${user_tag}`
             )
             await db.run(
                 'INSERT INTO pendingInvitations (discord_id,puzz_team, puzz_team_id) VALUES (?,?,?)',
@@ -105,7 +110,7 @@ async function addmembers(client: Discord.Client, msg: Discord.Message, args: st
                 `${role}`
             )
         });
-        msg.channel.send(`Awaiting acceptance or rejection of members`);
+        msg.channel.send(`Awaiting acceptance or rejection of members for team ${res["puzz_team"]}`);
     }else{
         msg.reply(`You are not part of any team. Create or join a team.`);
     }
@@ -117,7 +122,7 @@ async function addmembers(client: Discord.Client, msg: Discord.Message, args: st
 async function accept(client: Discord.Client, msg:Discord.Message, args: string[],db: Database<sqlite3.Database, sqlite3.Statement>) {
     const user_row = await db.get('SELECT * FROM puzzUsers WHERE discord_id = ?', msg.author.id);
     const pendingInvites_row = await db.get('SELECT * FROM pendingInvitations WHERE puzz_team = ? AND discord_id = ?', args[0], msg.author.id);
-    if (user_row["puzz_team_id"] !== null){
+    if (user_row && user_row["puzz_team_id"] !== null){
         msg.channel.send(`You are already in a team`);
     }
     else if (pendingInvites_row !== undefined) {
@@ -186,4 +191,16 @@ async function leaveteam(client: Discord.Client, msg:Discord.Message, args: stri
     }
 }
 
-export {registerteam, addmembers, accept, reject, leaveteam, deleteAll};
+async function listteams(client: Discord.Client, msg:Discord.Message, args: string[],db: Database<sqlite3.Database, sqlite3.Statement>) {
+    const list_of_teams = await db.all('SELECT puzz_team,puzz_team_id FROM puzzTeams');
+    const guild = await client.guilds.fetch(guild_id);
+    msg.channel.send(`-----There are ${list_of_teams.length} teams in total-----`);
+    list_of_teams.forEach(async (row) => {
+        const list_of_user = await db.all('SELECT discord_id,discord_tag FROM puzzUsers WHERE puzz_team_id = ?', row["puzz_team_id"]);
+        let members = list_of_user.map((user) => user["discord_tag"] + ", ");
+        let reduction = members.reduce((p,n) => p + n,"");
+        msg.channel.send(row["puzz_team"] + ": " + reduction.slice(0,-2));
+    })
+}
+
+export {registerteam, addmembers, accept, reject, leaveteam, deleteAll,listteams};
